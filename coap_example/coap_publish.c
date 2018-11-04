@@ -275,6 +275,7 @@ int main(int argc, FAR char *argv[]) {
                 printf("send fail\n");
             }
             else{
+                publishedVal = 
                 int recv_len = recvfrom(res, recv, 100, 0, (struct sockaddr*)&server_addr, &server_addr_len);
                 if(recv_len==-1){
                     printf("recv fail\n");
