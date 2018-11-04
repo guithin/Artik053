@@ -1,0 +1,6 @@
+client <-----> artik cloud
+
+transport layer : TCP
+application layer : MQTT
+
+artik cloud device type: Ajou IoT System
