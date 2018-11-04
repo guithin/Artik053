@@ -4,3 +4,18 @@ transport layer : TCP
 application layer : MQTT
 
 artik cloud device type: Ajou IoT System
+
+
+subscribe:
+
+artik cloud setting->
+
+  if (publish_device.Cds_Value > 300){
+    send(subscribe_device.led, on);
+  }
+  else{
+    send(subscribe_device.led, off);
+  }
+  
+--> publish device: send Cds value to cloud
+--> subscrice device: recv led on/off from cloud
