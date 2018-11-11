@@ -180,22 +180,6 @@ int main(int argc, FAR char *argv[]) {
     printf("coap client tutorial\n");
 
     // coap_packet
-    coap_packet_t coap_packet;
-
-
-    // Read analog signal using ADC
-    int fd;
-    struct adc_msg_s sample;
-    size_t readsize;
-    ssize_t nbytes;
-    int publishedVal = -1;
-
-    fd = open("/dev/adc0", O_RDONLY);
-    if (fd < 0) {
-        printf("%s: open failed: %d\n", __func__, errno);
-        return 0;
-    }
-
     coap_packet_t* request = malloc(sizeof(coap_packet_t));
     struct sockaddr_in  server_addr;
     int res = socket(PF_INET, SOCK_DGRAM, 0);
