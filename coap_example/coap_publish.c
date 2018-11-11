@@ -23,10 +23,6 @@
 
 #define NET_DEVNAME "wl1"
 
-//if use artik cloud
-char device_id[] =       "";
-char device_token[] =    "";
-
 static const char coap_ca_cert_str[] = \
       "-----BEGIN CERTIFICATE-----\r\n"
       "MIIGrTCCBZWgAwIBAgIQASAP9e8Tbenonqd/EQFJaDANBgkqhkiG9w0BAQsFADBN\r\n"
@@ -124,13 +120,14 @@ int analogRead(int port, int *fd){
         char devpath[16];
         sprintf(devpath, "/dev/adc%d", port);
         (*fd) = open(devpath, O_RDONLY);
+        printf("file open %d\n", (*fd));
     }
     if((*fd)<0){
         printf("%s: gpio read fail: %d\n", __func__, errno);
         return 0;
     }
     struct adc_msg_s sample;
-
+    int cnt = 0, retVal = 0;
     while(1){
         int ret = ioctl((*fd), ANIOC_TRIGGER, 0);
         if(ret < 0){
@@ -153,8 +150,12 @@ int analogRead(int port, int *fd){
             printf("read size error\n");
             return 0;
         }
-        if(sample.am_channel == port){
-            return sample.am_data;
+        if(sample.am_channel == (uint8_t)port){
+            retVal += sample.am_data;
+            cnt++;
+        }
+        if(cnt==16){
+        	return retVal / 16;
         }
     }
     //analogRead use many time, not close(fd)
@@ -165,7 +166,7 @@ int main(int argc, FAR char *argv[]) {
 
     char *strTopicMsg = (char*)malloc(sizeof(char)*256);
     char *strTopicAct = (char*)malloc(sizeof(char)*256);
-    sprintf(strTopicMsg, "");
+    sprintf(strTopicMsg, "v1.1/messages/7");
     sprintf(strTopicAct, "");
 
     // for NTP Client
@@ -232,15 +233,27 @@ int main(int argc, FAR char *argv[]) {
     int fd = 0;
     int publishedVal = -1;
 
+    struct sockaddr_in server_addr;
+    int res = socket(PF_INET, SOCK_DGRAM, 0);
+    if(res == -1){
+        printf("socket fail\n");
+        return 0;
+    }
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = inet_addr(SERVER_ADDR);
+    server_addr.sin_port = htons(SERVER_PORT);
 
     while(1){
         usleep(10000);
         int value = analogRead(0, &fd);
-        if(publishedVal - value > 50 || value - publishedVal > 50){
+        if(publishedVal - value > 100 || value - publishedVal > 100){
             printf("publish value %d\n", value);
             char buf[100];
             char coapsend[100]={0};
-            sprintf(buf, "{\"data\":{\"brightness\":%d}}", value);
+            sprintf(buf, "{\"brightness\":%d}", value);
+
+            publishedVal = value;
             coap_packet_t *request = malloc(sizeof(coap_packet_t));
             coap_init_message(request, COAP_UDP, COAP_TYPE_CON, COAP_POST, coap_get_mid());
             coap_set_header_uri_host(request, SERVER_ADDR);
@@ -256,16 +269,6 @@ int main(int argc, FAR char *argv[]) {
                     break;
                 }
             }
-            struct sockaddr_in server_addr;
-            int res = socket(PF_INET, SOCK_DGRAM, 0);
-            if(res == -1){
-                printf("socket fail\n");
-                return 0;
-            }
-            memset(&server_addr, 0, sizeof(server_addr));
-            server_addr.sin_family = AF_INET;
-            server_addr.sin_addr.s_addr = inet_addr(SERVER_ADDR);
-            server_addr.sin_port = htons(SERVER_PORT);
 
             char recv[100]={0};
             size_t server_addr_len = sizeof(server_addr);
@@ -275,13 +278,12 @@ int main(int argc, FAR char *argv[]) {
                 printf("send fail\n");
             }
             else{
-                publishedVal = 
                 int recv_len = recvfrom(res, recv, 100, 0, (struct sockaddr*)&server_addr, &server_addr_len);
                 if(recv_len==-1){
                     printf("recv fail\n");
                 }
                 else{
-                    if(recv[1] == 65){//message type, 65: Created
+                    if(recv[1] == 68){//message type, 68: success
                         printf("publish success\n");
                     }
                     else{
