@@ -18,9 +18,10 @@
 #define DEFAULT_CLIENT_ID "123456789"
 #define SERVER_ADDR ""
 
-#define SERVER_PORT 
+#define SERVER_PORT 5683
 
 #define NET_DEVNAME "wl1"
+
 
 static const char mqtt_ca_cert_str[] = \
 		"-----BEGIN CERTIFICATE-----\r\n"
@@ -195,9 +196,7 @@ int main(int argc, FAR char *argv[]) {
         return 0;
     }
 
-    coap_packet_t* request;
-
-    request = (coap_packet_t*)malloc(sizeof(coap_packet_t));
+    coap_packet_t* request = malloc(sizeof(coap_packet_t));
     struct sockaddr_in  server_addr;
     int res = socket(PF_INET, SOCK_DGRAM, 0);
     if (res == -1) {
@@ -232,44 +231,55 @@ int main(int argc, FAR char *argv[]) {
     			break;
     		}
     	}
-
+    	int k;
+    	for(k=0;k<=i;k++){
+    		printf("%x ", coaps[k]);
+    		if((k+1)%8==0)printf("\n");
+    	}
     	int send_len = sendto(res, (const void*)coaps, i + 1, 0,(const struct sockaddr*)&server_addr, server_addr_len);
     	if (send_len == -1) {
     		printf("send failed");
     		continue;
     	}
     	printf("send success\n");
-    	int recv_len = recvfrom(res, recv, 100, 0, (struct sockaddr*)&server_addr, &server_addr_len);
-    	if(recv_len<0){
-    		printf("recv fail\n");
-    		continue;
-    	}
-    	else{
-    		recv[recv_len]=0;
-    		if(recv[1]==69) flag=1;
-    		else printf("err %d\n", recv[1]);
-    	}
+    	flag = 1;
     }
+    free(request);
     printf("coap-server connect\n");
+    int recvMid=0;
 	while(flag == 1){
-        printf("waitting...\n");
+		printf("waitting...\n");
 		int recv_len = recvfrom(res, recv, 100, 0, (struct sockaddr*)&server_addr, &server_addr_len);
 		if(recv_len<0){
 			printf("recv fail\n");
 			continue;
 		}
+		printf("recv success: %d\n", recv_len);
 		recv[recv_len]=0;
-		printf("%d\n", recv_len);
-		if(recv[1]!=69){//code: 69 -> connected
+		if(recv[1]!=69){
 			printf("err %d\n", (int)recv[1]);
 			continue;
 		}
+
+		//send ack (empty message, same mid)
+		printf("recv mid: %x%x\n", (int)recv[2], (int)recv[3]);
+		recvMid = ((int)recv[2]<<8) + ((int)recv[3]);
+		coap_packet_t *ack = malloc(sizeof(coap_packet_t));
+		memset(ack, 0, sizeof(coap_packet_t));
+		coap_init_message(ack, COAP_UDP, COAP_TYPE_ACK, 0, recvMid);
+		ack->options_len=10;
+		char ackSerial[20]={0};
+		coap_serialize_message(ack, ackSerial);
+		int ackSuc = sendto(res, (const void*)ackSerial, 4, 0, (const struct sockaddr*)&server_addr, server_addr_len);
+		printf("ackSuccess: %d\n", ackSuc); free(ack);
+
+
 		int i=0;
 		while(recv[i++]!=(int)0xff);//go to payload
-		printf("\n%s\n", recv+i);
-		char temp[50]={0};
+		printf("payload:\n%s\n\n", recv+i);
+		char temp[7]={0};
 
-		//static format ack
+		//static format recv
 		sscanf(recv + i, "{\"actions\":[{\"name\":\"led\",\"parameters\":{\"OnOff\":%s}}]}", temp);
 		if(strncmp(temp, "false", 5)==0){
 			gpio_write(29, 0);
