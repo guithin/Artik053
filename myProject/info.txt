@@ -1,3 +1,3 @@
 mfrc source + mqtt source -> read RFID Card and send CardId to Artik cloud
 
-(before test. i don't know this code work)
+(test done)
