@@ -18,8 +18,8 @@ typedef unsigned int u_int;
 
 #define NET_DEVNAME "wl1"
 
-char device_id[] = 		"asdf";		//artik cloud device id
-char device_token[] = 	"asdf";		//artik cloud device token
+char device_id[] = 		"";		//artik cloud device id
+char device_token[] = 	"";		//artik cloud device token
 
 static const char mqtt_ca_cert_str[] = \
 		"-----BEGIN CERTIFICATE-----\r\n"
@@ -285,13 +285,13 @@ int main(int argc, FAR char *argv[]) {
             if(value == published)continue;
 
             published = value;
-            sprintf(buf, "{\"CardId\" : %x}", value);
+            sprintf(buf, "{\"id\" : \"%x\"}", value);
 
             int success = mqtt_publish(pClientHandle, strTopicMsg, (char *)buf, strlen(buf), 0, 0);
             printf("publish %s\n", success < 0 ? "fail" : "success");
         }
         else{ //no detect 1s -> published value reset
-            if(published && cnt++ < 50)published = cnt = 0;
+            if(published && cnt++ > 50)printf("id reset: %d\n", published = cnt = 0);
         }
     }
     return 0;
