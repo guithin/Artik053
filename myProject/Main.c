@@ -5,6 +5,10 @@
 #include <apps/netutils/ntpclient.h>
 #include <mqtt_api.h>
 #include <string.h>
+#include <fcntl.h>
+#include <tinyara/analog/ioctl.h>
+#include <tinyara/gpio.h>
+#include <tinyara/config.h>
 #include "mfrc522.h"
 
 typedef unsigned char u_char;
@@ -14,6 +18,21 @@ typedef unsigned int u_int;
 #define SERVER_ADDR "api.artik.cloud"
 
 #define SERVER_PORT 8883		//mqtt default port
+
+#define GPIO_FUNC_SHIFT 13
+#define GPIO_INPUT (0x0 << GPIO_FUNC_SHIFT)
+#define GPIO_OUTPUT (0x1 << GPIO_FUNC_SHIFT)
+
+#define GPIO_PORT_SHIFT 3
+#define GPIO_PORTG1 (0x5 << GPIO_PORT_SHIFT)
+#define GPIO_PORTG2 (0x6 << GPIO_PORT_SHIFT)
+
+#define GPIO_PIN_SHIFT 0
+#define GPIO_PIN2 (0x2 << GPIO_PIN_SHIFT)
+
+#define GPIO_PUPD_SHIFT 11
+#define GPIO_PULLDOWN (0x1 << GPIO_PUPD_SHIFT)
+#define GPIO_PULLUP (0x3 << GPIO_PUPD_SHIFT)
 
 
 #define NET_DEVNAME "wl1"
@@ -274,8 +293,12 @@ int main(int argc, FAR char *argv[]) {
     u_char str[64];
     u_char buf[64];
 
+    uint32_t a = GPIO_INPUT | GPIO_PORTG1 | GPIO_PIN2 | GPIO_PULLUP;
+    s5j_configgpio(a);
+
     while(1){
         up_mdelay(20);
+        if(s5j_gpioread(a))continue;
         status = MFRC522_Request(PICC_REQIDL, str);
         if(status == MI_OK){
             status = MFRC522_Anticoll(str);
