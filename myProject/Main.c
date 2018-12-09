@@ -195,6 +195,18 @@ static void ntp_link_error(void) {
 	printf("ntp_link_error() callback is called.\n");
 }
 
+int rfidread(char *buf, int flag){
+	if(MFRC522_Request(PICC_REQIDL, buf) == MI_OK){
+		if(MFRC522_Anticoll(buf) == MI_OK){
+			return 0;
+		}else if(flag == 0){
+			rfidread(buf, 1);
+		}else return -1;
+	}else if(flag == 0){
+		rfidread(buf, 1);
+	}else return -1;
+}
+
 int main(int argc, FAR char *argv[]) {
     bool wifiConnected = false;
 
@@ -288,8 +300,6 @@ int main(int argc, FAR char *argv[]) {
 //proccess start
     mfrc522_init();
 
-    u_int published = 0;
-    u_char status;
     int cnt = 0;
     u_char str[64];
     u_char buf[64];
@@ -299,44 +309,39 @@ int main(int argc, FAR char *argv[]) {
     int fd = open("/dev/ttyS1", O_RDWR | O_NOCTTY);
 
     while(1){
+    	memset(str, 0, sizeof(str));
         up_mdelay(20);
         if(!s5j_gpioread(a))continue;
         printf("get signal\n");
-        status = MFRC522_Request(PICC_REQIDL, str);
         u_int A = 0;
-        if(status == MI_OK){
-            status = MFRC522_Anticoll(str);
-           	if(status == MI_OK){
-           		A = ((u_int)str[0] << (8*3)) | ((u_int)str[1] << (8*2)) | ((u_int)str[2] << (8*1)) | (u_int)str[3];
-           	}
+        if(rfidread(str, 0) == 0){
+        	A = ((u_int)str[0] << (8*3)) | ((u_int)str[1] << (8*2)) | ((u_int)str[2] << (8*1)) | (u_int)str[3];
         }
-        printf("A: %x\n", A);
         char temp[50]={0,};
         char sendmsg[] = "readRFID";
         write(fd, sendmsg, sizeof(sendmsg));
         read(fd, temp, 8);
         u_int B = 0;
         if(temp[0] != 0){
-        	printf("tmep: %s\n", temp);
         	sscanf(temp, "%x", &B);
         }
         int flag = 0;
+        printf("A: %x\nB: %x\n", A, B);
         if(A && B){
         	sprintf(buf, "{\"id\":\"[\'%x\', \'%x\']\"}", A, B);
-        	flag = mqtt_publish(pClientHandle, strTopicMsg, (char *)buf, strlen(buf), 0, 0);
         }
         else if(A || B){
         	sprintf(buf, "{\"id\": \"[\'%x\']\"}", A ? A : B);
-        	flag = mqtt_publish(pClientHandle, strTopicMsg, (char *)buf, strlen(buf), 0, 0);
         }
-	else{
-		sprintf(buf, "{\"id\":\"[]\"}");
-		flag = mqtt_publish(pClientHandle, strTopicMsg, (char *)buf, strlen(buf), 0, 0);
-	}
-        printf("flag: %d\n", flag);
-        if(flag){
-        	while(s5j_gpioread(a))up_mdelay(20);
+        else{
+        	sprintf(buf, "{\"id\":\"[]\"}");
         }
+    	flag = mqtt_publish(pClientHandle, strTopicMsg, (char *)buf, strlen(buf), 0, 0);
+        do{
+        	up_mdelay(20);
+        }while(s5j_gpioread(a));
+        printf("push end\n");
+
     }
     return 0;
 }
