@@ -329,6 +329,10 @@ int main(int argc, FAR char *argv[]) {
         	sprintf(buf, "{\"id\": \"[\'%x\']\"}", A ? A : B);
         	flag = mqtt_publish(pClientHandle, strTopicMsg, (char *)buf, strlen(buf), 0, 0);
         }
+	else{
+		sprintf(buf, "{\"id\":\"[]\"}");
+		flag = mqtt_publish(pClientHandle, strTopicMsg, (char *)buf, strlen(buf), 0, 0);
+	}
         printf("flag: %d\n", flag);
         if(flag){
         	while(s5j_gpioread(a))up_mdelay(20);
