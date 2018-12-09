@@ -11,13 +11,21 @@
 typedef unsigned char u_char;
 typedef unsigned int u_int;
 
+int rfidread(char *buf, int flag){
+	if(MFRC522_Request(PICC_REQIDL, buf) == MI_OK){
+		if(MFRC522_Anticoll(buf) == MI_OK){
+			return 0;
+		}else if(flag == 0){
+			rfidread(buf, 1);
+		}else return -1;
+	}else if(flag == 0){
+		rfidread(buf, 1);
+	}else return -1;
+}
+
 int main(int argc, FAR char *argv[]) {
     mfrc522_init();
 
-    u_int published = 0;
-    u_char status;
-    int cnt = 0;
-    u_char buf[64];
     int fd = open("/dev/ttyS1", O_RDWR | O_NOCTTY);
 
     while(1){
@@ -25,15 +33,10 @@ int main(int argc, FAR char *argv[]) {
         char str[20]={0,};
         read(fd, str, 8);
         if(strcmp(str, "readRFID"))continue;
-        status = MFRC522_Request(PICC_REQIDL, str);
         u_int A = 0;
-        if(status == MI_OK){
-            status = MFRC522_Anticoll(str);
-              if(status == MI_OK){
-                 A = ((u_int)str[0] << (8*3)) | ((u_int)str[1] << (8*2)) | ((u_int)str[2] << (8*1)) | (u_int)str[3];
-              }
-        }
        char ddd[20] = {0,};
+       if(rfidread(ddd, 0) == 0)
+          A = ((u_int)ddd[0] << (8*3)) | ((u_int)ddd[1] << (8*2)) | ((u_int)ddd[2] << (8*1)) | (u_int)ddd[3];
        printf("%x\n", A);
         if(A){
            sprintf(ddd, "%x", A);
